@@ -1,7 +1,11 @@
 import asyncio
+import logging
 from nats.aio.client import Client as NATS
 from nats.js.api import ConsumerConfig
 from nats_consumer.config.config import NATS_URL, STREAM_NAME, BASE_SUBJECT, CONSUMER_WORKER_COUNT, BATCH_SIZE
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Consumer:
@@ -19,7 +23,7 @@ class Consumer:
         self.nc = NATS()
         await self.nc.connect(servers=[self.nats_url])
         self.js = self.nc.jetstream()
-        print("Consumer is connected to NATS server")
+        logger.info("Consumer is connected to NATS server")
 
     async def create_consumer(self):
         config = ConsumerConfig(
@@ -33,7 +37,7 @@ class Consumer:
         )
 
         await self.js.add_consumer(stream=self.stream_name, config=config)
-        print(
+        logger.info(
             f"Consumer '{self.consumer_name}' added to stream '{self.stream_name}' with filter '{self.subject_filter}'")
 
     async def close(self):
@@ -52,15 +56,15 @@ class Consumer:
             try:
                 msgs = await sub.fetch(self.batch_size, timeout=5)
                 for msg in msgs:
-                    print(f"worker_id: {worker_id} receives message: {msg.data.decode()}")
+                    logger.info(f"worker_id: {worker_id} receives message: {msg.data.decode()}")
                     await msg.ack()
 
             except asyncio.TimeoutError:
-                print(f"Worker {worker_id}: No messages available, waiting...")
+                logger.info(f"Worker {worker_id}: No messages available, waiting...")
 
             except Exception as e:
                 await self.close()
-                print(f"Worker {worker_id} error: {e}")
+                logger.info(f"Worker {worker_id} error: {e}")
                 break
 
     async def run_worker(self):
@@ -82,4 +86,3 @@ async def run_consumer(consumer_name):
         consumer_name
     )
     await consumer.run()
-

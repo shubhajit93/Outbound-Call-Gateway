@@ -68,39 +68,27 @@ class WebhookListener:
         @self.app.post("/outbounds/gateway/webhook")
         async def webhook(request: Request):
             try:
-                json_data = await request.json()
-                organization = json_data.get('organization')
-                calls = json_data.get('calls')
-
-                logger.info(f"Received webhook for organization: {organization} with {len(calls)} calls")
+                webhook_data = WebhookRequest.parse_obj(await request.json())
+                organization = webhook_data.organization
+                calls = webhook_data.calls
 
                 if not organization or not calls:
                     logger.error("Invalid request data: missing organization or calls")
                     raise HTTPException(status_code=400, detail="Invalid request: missing organization or calls")
 
+                logger.info(f"organization: {organization} with {len(calls)} calls")
+
                 for call in calls:
                     message_dict = call.dict()
                     message_dict['organization'] = organization
-                    print(message_dict)
-                    await self.publisher.publish_message(organization, "Hello")
+                    # Converts input dictionary into string and stores it in json_string
+                    logger.info(f"Publishing message: {json.dumps(message_dict, ensure_ascii=False)}")
+                    await self.publisher.publish_message(organization, json.dumps(message_dict, ensure_ascii=False))
 
-                return {"status": "success", "message": "Message published successfully"}
+                return {"status": "success", "message": "Messages published successfully"}
+
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
-
-            # print(calls)
-            # print(f"service name: {service_name}")
-            #
-            # # print(f"Organization: {service_name}")
-            # # print(f"Content: {content}")
-            # await self.publisher.publish_message(service_name, "Hello")
-
-            # if service_name:
-            #     message = str(content)
-            #     await self.publisher.publish_message(service_name, message)
-            #     return {"status": "success", "service_name": service_name, "message": "ok"}
-            # else:
-            #     return {"status": "error", "message": "serviceName not provided"}
 
     def run(self):
         import uvicorn
